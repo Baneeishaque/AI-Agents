@@ -58,7 +58,7 @@ cd "$BUILD_DIR"
 # Configure CMake options
 CMAKE_OPTS="-DCMAKE_BUILD_TYPE=$BUILD_TYPE"
 
-if $USE_NINJA && command -v ninja &> /dev/null; then
+if $USE_NINJA && command -v ninja >/dev/null 2>&1; then
     CMAKE_OPTS="$CMAKE_OPTS -G Ninja"
     echo "Using Ninja generator"
 fi
@@ -76,7 +76,7 @@ if $BUILD_DART; then
 fi
 
 # Run Conan if requested
-if $USE_CONAN && command -v conan &> /dev/null; then
+if $USE_CONAN && command -v conan >/dev/null 2>&1; then
     echo "Installing Conan dependencies..."
     conan install "$PROJECT_DIR" --output-folder=. --build=missing
 fi

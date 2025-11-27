@@ -20,6 +20,7 @@
 #else
     #include <unistd.h>
     #include <sys/stat.h>
+    #include <sys/wait.h>
 #endif
 
 namespace git_reword {

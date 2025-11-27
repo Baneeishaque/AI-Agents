@@ -14,6 +14,7 @@
 
 #ifdef _WIN32
     #include <windows.h>
+    #include <shellapi.h>
     #include <direct.h>
 #else
     #include <sys/stat.h>

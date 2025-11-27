@@ -9,8 +9,32 @@
 
 #include <sstream>
 #include <algorithm>
+#include <regex>
 
 namespace git_reword {
+
+namespace {
+// Validate that a string is a safe git reference (commit hash, branch name, tag)
+// Git refs can contain alphanumeric characters, -, _, /, ., and ~
+// They cannot start with . or end with .lock, and cannot contain ..
+bool is_safe_git_ref(const std::string& ref) {
+    if (ref.empty() || ref.length() > 256) {
+        return false;
+    }
+    
+    // Check for shell-dangerous characters
+    static const std::string dangerous_chars = ";|&$`\\!(){}[]<>\"'\n\r\t";
+    for (char c : ref) {
+        if (dangerous_chars.find(c) != std::string::npos) {
+            return false;
+        }
+    }
+    
+    // Basic pattern for safe git refs
+    static const std::regex safe_ref_pattern(R"(^[a-zA-Z0-9_.\-~^/]+$)");
+    return std::regex_match(ref, safe_ref_pattern);
+}
+} // anonymous namespace
 
 GitOperations::GitOperations(const std::string& repo_path)
     : repo_path_(repo_path) {
@@ -107,6 +131,11 @@ std::optional<std::string> GitOperations::get_head_commit() const {
 }
 
 std::optional<CommitInfo> GitOperations::get_commit_info(const std::string& commit_ref) const {
+    // Validate commit ref to prevent shell injection
+    if (!is_safe_git_ref(commit_ref)) {
+        return std::nullopt;
+    }
+    
     auto result = run_git_command("log -1 --format=\"%H|%h|%s|%an|%ai\" \"" + commit_ref + "\"");
     if (!result.success) {
         return std::nullopt;
@@ -128,14 +157,33 @@ std::optional<CommitInfo> GitOperations::get_commit_info(const std::string& comm
 }
 
 GitResult GitOperations::create_tag(const std::string& tag_name) {
+    GitResult result;
+    if (!is_safe_git_ref(tag_name)) {
+        result.success = false;
+        result.error = "Invalid tag name format";
+        result.exit_code = -1;
+        return result;
+    }
     return run_git_command("tag \"" + tag_name + "\"");
 }
 
 GitResult GitOperations::delete_tag(const std::string& tag_name) {
+    GitResult result;
+    if (!is_safe_git_ref(tag_name)) {
+        result.success = false;
+        result.error = "Invalid tag name format";
+        result.exit_code = -1;
+        return result;
+    }
     return run_git_command("tag -d \"" + tag_name + "\"");
 }
 
 bool GitOperations::verify_tag(const std::string& tag_name, const std::string& expected_commit) {
+    // Validate inputs
+    if (!is_safe_git_ref(tag_name) || !is_safe_git_ref(expected_commit)) {
+        return false;
+    }
+    
     auto result = run_git_command("rev-parse \"" + tag_name + "\"");
     if (!result.success) {
         return false;
@@ -154,15 +202,26 @@ bool GitOperations::verify_tag(const std::string& tag_name, const std::string& e
 }
 
 GitResult GitOperations::start_reword_rebase(const std::string& commit_hash) {
+    GitResult result;
+    
+    // Validate commit hash to prevent shell injection
+    if (!is_safe_git_ref(commit_hash)) {
+        result.success = false;
+        result.error = "Invalid commit hash format";
+        result.exit_code = -1;
+        return result;
+    }
+    
     // Construct the sed command based on platform
     std::string sed_cmd;
+    std::string short_hash = commit_hash.substr(0, 7);
     
 #ifdef __APPLE__
     // macOS sed requires different syntax
-    sed_cmd = "sed -i '' 's/^pick " + commit_hash.substr(0, 7) + "/reword " + commit_hash.substr(0, 7) + "/'";
+    sed_cmd = "sed -i '' 's/^pick " + short_hash + "/reword " + short_hash + "/'";
 #else
     // Linux/GNU sed
-    sed_cmd = "sed -i 's/^pick " + commit_hash.substr(0, 7) + "/reword " + commit_hash.substr(0, 7) + "/'";
+    sed_cmd = "sed -i 's/^pick " + short_hash + "/reword " + short_hash + "/'";
 #endif
     
     std::string git_cmd = "GIT_SEQUENCE_EDITOR=\"" + sed_cmd + "\" git";
@@ -171,7 +230,6 @@ GitResult GitOperations::start_reword_rebase(const std::string& commit_hash) {
     }
     git_cmd += " rebase -i \"" + commit_hash + "^\"";
     
-    GitResult result;
     result.output = platform::execute_command(git_cmd, result.exit_code);
     result.success = (result.exit_code == 0);
     
@@ -197,6 +255,13 @@ GitResult GitOperations::abort_rebase() {
 }
 
 GitResult GitOperations::reset_hard(const std::string& ref) {
+    GitResult result;
+    if (!is_safe_git_ref(ref)) {
+        result.success = false;
+        result.error = "Invalid git reference format";
+        result.exit_code = -1;
+        return result;
+    }
     return run_git_command("reset --hard \"" + ref + "\"");
 }
 

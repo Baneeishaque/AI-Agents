@@ -190,9 +190,9 @@ RewordResult RewordEngine::reword_commit(
     // Continue rebase
     report_progress("Completing rebase");
     auto continue_result = git_ops_.continue_rebase();
-    if (!continue_result.success && 
-        continue_result.error.find("No rebase in progress") == std::string::npos) {
-        // Ignore "no rebase in progress" - that means it completed automatically
+    // Check if rebase is still in progress (exit code check is more reliable than string matching)
+    // If continue_rebase fails but no rebase is in progress, that's OK - rebase completed automatically
+    if (!continue_result.success && git_ops_.is_rebase_in_progress()) {
         result.status = RewordStatus::RebaseFailed;
         result.message = "Failed to complete rebase: " + continue_result.error;
         
