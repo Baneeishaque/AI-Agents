@@ -2,6 +2,7 @@
 build/
 build-*/
 out/
+_codeql_build_dir/
 
 # CMake
 CMakeCache.txt
