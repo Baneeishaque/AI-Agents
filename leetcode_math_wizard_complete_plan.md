@@ -229,7 +229,7 @@
 ## 9. 🧠 The Active Recall Quiz
 
 *   **Q1:** Conceptual check — What is the core insight?
-    *   *Example:* "What is the Time Complexity of the recursive solution?" ($2^n$)
+    *   *Example:* "What is the Time Complexity of the recursive solution?" ($O(2^n)$)
 *   **Q2:** Edge case check — What breaks first?
     *   *Example:* "What happens if $N=50$ with `int`?" (Overflow)
 *   **Q3:** Complexity check — Prove the Big O.
